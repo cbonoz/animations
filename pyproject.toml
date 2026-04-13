@@ -1,0 +1,7 @@
+[project]
+name = "animations"
+version = "0.1.0"
+description = "Physics-based animations with Pygame"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["pygame", "imageio", "imageio-ffmpeg", "numpy"]
