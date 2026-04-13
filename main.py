@@ -29,7 +29,10 @@ def create_bouncing_simulation(args):
         width=args.resolution,
         height=args.resolution,
         fps=args.fps,
-        duration=args.duration
+        duration=args.duration,
+        num_balls=args.num_balls,
+        num_walls=args.num_walls,
+        respawn_interval=args.respawn_interval
     )
     anim.run()
     print(f"✓ Video saved to media/videos/bouncing_ball.mp4")
@@ -42,6 +45,8 @@ def main():
         epilog="""
 Examples:
   python main.py --type bouncing --duration 20
+  python main.py --type bouncing --num-balls 3 --num-walls 2
+  python main.py --type bouncing --num-balls 5 --respawn-interval 2
   python main.py --type bouncing --resolution 1024 --fps 60
   python main.py --list
         """
@@ -81,12 +86,38 @@ Examples:
         type=str,
         help="Output filename (default: simulation_type.mp4)"
     )
+    parser.add_argument(
+        "--num-balls",
+        type=int,
+        default=1,
+        help="Number of balls to spawn (default: 1)"
+    )
+    parser.add_argument(
+        "--num-walls",
+        type=int,
+        default=1,
+        help="Number of wall layers (1-3, default: 1)"
+    )
+    parser.add_argument(
+        "--respawn-interval",
+        type=float,
+        default=3,
+        help="Seconds between ball respawns (default: 3)"
+    )
     
     args = parser.parse_args()
     
-    # Validate duration
+    # Validate parameters
     if args.duration < 15 or args.duration > 30:
         print("Error: Duration must be between 15 and 30 seconds")
+        sys.exit(1)
+    
+    if args.num_balls < 1:
+        print("Error: num_balls must be >= 1")
+        sys.exit(1)
+    
+    if args.num_walls < 1 or args.num_walls > 3:
+        print("Error: num_walls must be between 1 and 3")
         sys.exit(1)
     
     # List simulations
