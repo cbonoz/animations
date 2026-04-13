@@ -34,6 +34,10 @@ def create_bouncing_simulation(args):
         num_walls=args.num_walls,
         respawn_interval=args.respawn_interval
     )
+    # Set custom rotation speed if provided
+    if args.rotation_speed is not None:
+        anim.rotation_speed = args.rotation_speed
+    
     anim.run()
     print(f"✓ Video saved to media/videos/bouncing_ball.mp4")
 
@@ -47,6 +51,8 @@ Examples:
   python main.py --type bouncing --duration 20
   python main.py --type bouncing --num-balls 3 --num-walls 2
   python main.py --type bouncing --num-balls 5 --respawn-interval 2
+  python main.py --type bouncing --rotation-speed 2.0  # Fast rotation
+  python main.py --type bouncing --rotation-speed 0 --num-balls 4  # No rotation
   python main.py --type bouncing --resolution 1024 --fps 60
   python main.py --list
         """
@@ -103,6 +109,11 @@ Examples:
         type=float,
         default=3,
         help="Seconds between ball respawns (default: 3)"
+    )
+    parser.add_argument(
+        "--rotation-speed",
+        type=float,
+        help="Barrier rotation speed in degrees/frame (default: 0.5, use 0 for no rotation)"
     )
     
     args = parser.parse_args()

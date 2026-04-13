@@ -76,6 +76,10 @@ class BouncingBallAnimation:
         self.damping = 0.88  # Lower damping for more bounce
         self.elastic_boost = 1.15  # Barrier collisions add 15% energy
         self.max_velocity = 12  # Cap max speed to prevent runaway
+        
+        # Rotation parameters
+        self.system_rotation = 0  # Overall rotation angle in degrees
+        self.rotation_speed = 0.5  # Degrees per frame
 
         # Barriers
         self.barriers = self._init_barriers()
@@ -159,13 +163,31 @@ class BouncingBallAnimation:
         self.balls.append(Ball(pos, vel, radius=12))
         self.balls_spawned += 1
 
+    def rotate_point(self, x, y, angle_degrees):
+        """Rotate a point around arena center."""
+        center_x, center_y = self.width / 2, self.height / 2
+        angle_rad = math.radians(angle_degrees)
+        
+        # Translate to origin
+        x -= center_x
+        y -= center_y
+        
+        # Rotate
+        x_rot = x * math.cos(angle_rad) - y * math.sin(angle_rad)
+        y_rot = x * math.sin(angle_rad) + y * math.cos(angle_rad)
+        
+        # Translate back
+        return x_rot + center_x, y_rot + center_y
+
     def check_ball_barrier_collision(self, ball):
         """Check ball collision with barriers."""
         for barrier in self.barriers:
             if barrier.is_destroyed():
                 continue  # Skip destroyed barriers (ghost collision)
             
-            x1, y1, x2, y2 = barrier.x1, barrier.y1, barrier.x2, barrier.y2
+            # Get rotated barrier endpoints
+            x1, y1 = self.rotate_point(barrier.x1, barrier.y1, self.system_rotation)
+            x2, y2 = self.rotate_point(barrier.x2, barrier.y2, self.system_rotation)
             
             # Vector along barrier
             bx, by = x2 - x1, y2 - y1
@@ -245,6 +267,10 @@ class BouncingBallAnimation:
             self._spawn_ball()
             self.next_respawn_time = current_time + self.respawn_interval
         
+        # Update rotation
+        self.system_rotation += self.rotation_speed
+        self.system_rotation %= 360
+        
         # Update each ball
         for ball in self.balls:
             if not ball.alive:
@@ -275,18 +301,20 @@ class BouncingBallAnimation:
         # Draw barriers
         for barrier in self.barriers:
             if not barrier.is_destroyed():
+                # Get rotated barrier endpoints
+                x1, y1 = self.rotate_point(barrier.x1, barrier.y1, self.system_rotation)
+                x2, y2 = self.rotate_point(barrier.x2, barrier.y2, self.system_rotation)
+                
                 color = barrier.get_color()
                 # Draw barrier thicker if at full health (more solid feel)
                 thickness = 4 if barrier.health > barrier.max_health * 0.8 else 3
-                pygame.draw.line(surface, color, (barrier.x1, barrier.y1), 
-                               (barrier.x2, barrier.y2), thickness)
+                pygame.draw.line(surface, color, (x1, y1), (x2, y2), thickness)
                 
                 # Draw health indicator inner line
                 health_ratio = barrier.health / barrier.max_health
                 indicator_color = (100 + health_ratio * 155, 
                                  max(0, 150 - health_ratio * 150), 50)
-                pygame.draw.line(surface, indicator_color, (barrier.x1, barrier.y1),
-                               (barrier.x2, barrier.y2), 1)
+                pygame.draw.line(surface, indicator_color, (x1, y1), (x2, y2), 1)
         
         # Draw balls
         for ball in self.balls:
