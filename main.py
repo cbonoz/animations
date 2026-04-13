@@ -5,18 +5,19 @@ import argparse
 import sys
 from pathlib import Path
 from bouncing_pygame import BouncingBallAnimation
+from liquid_simulation import LiquidSimulation
 
 
 def list_simulations():
     """Print available simulation types."""
     simulations = {
         "bouncing": "Bouncing ball with gravity in a rotating square",
+        "liquid": "Liquid/sand particle simulation with gravity and collisions",
         # Future simulations:
         # "particles": "Particle swarm with physics",
         # "gravity": "N-body gravity simulation",
         # "magnetic": "Magnetic particle attraction/repulsion",
         # "cellular": "Conway's Game of Life",
-        # "liquid": "Simple liquid/sand simulation",
     }
     print("\nAvailable simulations:")
     for name, desc in simulations.items():
@@ -36,6 +37,31 @@ def create_bouncing_simulation(args):
     print(f"✓ Video saved to media/videos/bouncing_ball.mp4")
 
 
+def create_liquid_simulation(args):
+    """Create liquid particle simulation."""
+    # Use provided count or default based on duration
+    if args.particle_count:
+        particle_count = args.particle_count
+    else:
+        # Fewer particles for faster simulation
+        particle_count = int(80 + (args.duration - 15) * 4)
+    
+    # Default to 30 FPS for liquid (faster than bouncing ball's 60)
+    fps = args.fps if args.fps != 60 or args.type == "liquid" else 30
+    if args.type == "liquid":
+        fps = 30
+    
+    sim = LiquidSimulation(
+        width=args.resolution,
+        height=args.resolution,
+        fps=fps,
+        duration=args.duration,
+        particle_count=particle_count
+    )
+    sim.run()
+    print(f"✓ Video saved to media/videos/liquid_simulation.mp4")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate viral simulation videos",
@@ -43,6 +69,7 @@ def main():
         epilog="""
 Examples:
   python main.py --type bouncing --duration 20
+  python main.py --type liquid --particle-count 1000
   python main.py --type bouncing --resolution 1024 --fps 60
   python main.py --list
         """
@@ -78,6 +105,11 @@ Examples:
         help="List available simulations"
     )
     parser.add_argument(
+        "--particle-count",
+        type=int,
+        help="Number of particles for liquid simulation (default: 300-800 based on duration)"
+    )
+    parser.add_argument(
         "--output",
         type=str,
         help="Output filename (default: simulation_type.mp4)"
@@ -98,6 +130,8 @@ Examples:
     # Run simulation
     if args.type == "bouncing":
         create_bouncing_simulation(args)
+    elif args.type == "liquid":
+        create_liquid_simulation(args)
     else:
         print(f"Error: Unknown simulation type '{args.type}'")
         print("Use --list to see available simulations")
@@ -106,4 +140,5 @@ Examples:
 
 if __name__ == "__main__":
     main()
+
 
