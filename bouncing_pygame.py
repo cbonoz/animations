@@ -233,10 +233,10 @@ class BouncingBallAnimation:
                 
                 # Only collide if moving toward barrier
                 if dot < 0:
-                    # Elastic collision with boost
-                    impulse = dot * self.damping * self.elastic_boost
-                    ball.vel[0] -= impulse * normal_x
-                    ball.vel[1] -= impulse * normal_y
+                    # Elastic collision with boost - proper reflection formula
+                    # v' = v - 2(v·n)n, then apply damping and boost
+                    ball.vel[0] = (ball.vel[0] - 2 * dot * normal_x) * self.damping * self.elastic_boost
+                    ball.vel[1] = (ball.vel[1] - 2 * dot * normal_y) * self.damping * self.elastic_boost
                     
                     # Cap velocity
                     speed = math.sqrt(ball.vel[0]**2 + ball.vel[1]**2)
@@ -356,7 +356,8 @@ class BouncingBallAnimation:
         
         # Average ball velocity (energy indicator)
         if self.balls:
-            avg_vel = np.mean([np.linalg.norm(b.vel) for b in self.balls if b.alive])
+            velocities = [np.linalg.norm(b.vel) for b in self.balls if b.alive]
+            avg_vel = np.mean(velocities) if velocities else 0.0
             energy_text = font.render(f"Energy: {avg_vel:.1f}", True, (100, 200, 255))
             surface.blit(energy_text, (self.width - 250, 10))
         
