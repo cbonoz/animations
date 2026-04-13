@@ -180,10 +180,11 @@ class BouncingBallAnimation:
         return x_rot + center_x, y_rot + center_y
 
     def check_ball_barrier_collision(self, ball):
-        """Check ball collision with barriers."""
+        """Check ball collision with barriers (improved robustness)."""
         for barrier in self.barriers:
-            if barrier.is_destroyed():
-                continue  # Skip destroyed barriers (ghost collision)
+            # Skip fully destroyed barriers
+            if barrier.health <= 0:
+                continue
             
             # Get rotated barrier endpoints
             x1, y1 = self.rotate_point(barrier.x1, barrier.y1, self.system_rotation)
@@ -191,45 +192,65 @@ class BouncingBallAnimation:
             
             # Vector along barrier
             bx, by = x2 - x1, y2 - y1
-            blen = math.sqrt(bx**2 + by**2)
+            bx_len_sq = bx**2 + by**2
+            
+            # Avoid division by zero
+            if bx_len_sq < 0.0001:
+                continue
             
             # Vector from barrier start to ball
             px, py = ball.pos[0] - x1, ball.pos[1] - y1
             
-            # Project ball onto barrier
-            t = max(0, min(1, (px * bx + py * by) / (blen**2 + 0.0001)))
+            # Project ball onto barrier line
+            t = (px * bx + py * by) / bx_len_sq
+            t = max(0, min(1, t))  # Clamp to barrier segment
+            
+            # Closest point on barrier
             closest_x = x1 + t * bx
             closest_y = y1 + t * by
             
             # Distance to barrier
             dist_x = ball.pos[0] - closest_x
             dist_y = ball.pos[1] - closest_y
-            dist = math.sqrt(dist_x**2 + dist_y**2)
+            dist_sq = dist_x**2 + dist_y**2
             
-            if dist < ball.radius:
-                # Collision!
-                normal_x = dist_x / (dist + 0.0001)
-                normal_y = dist_y / (dist + 0.0001)
+            # Check collision (with small margin)
+            collision_dist = ball.radius + 0.5  # Add 0.5px margin
+            
+            if dist_sq < collision_dist**2:
+                dist = math.sqrt(dist_sq)
                 
-                # Reflect velocity with elastic boost
+                # Avoid division by zero
+                if dist < 0.01:
+                    dist = 0.01
+                
+                # Normal vector pointing away from barrier
+                normal_x = dist_x / dist
+                normal_y = dist_y / dist
+                
+                # Velocity component along normal
                 dot = ball.vel[0] * normal_x + ball.vel[1] * normal_y
-                if dot < 0:  # Moving toward wall
-                    # Elastic collision: reflect and boost energy
-                    ball.vel[0] = (ball.vel[0] - 2 * dot * normal_x) * self.damping * self.elastic_boost
-                    ball.vel[1] = (ball.vel[1] - 2 * dot * normal_y) * self.damping * self.elastic_boost
+                
+                # Only collide if moving toward barrier
+                if dot < 0:
+                    # Elastic collision with boost
+                    impulse = dot * self.damping * self.elastic_boost
+                    ball.vel[0] -= impulse * normal_x
+                    ball.vel[1] -= impulse * normal_y
                     
-                    # Cap velocity to prevent runaway
-                    speed = np.linalg.norm(ball.vel)
+                    # Cap velocity
+                    speed = math.sqrt(ball.vel[0]**2 + ball.vel[1]**2)
                     if speed > self.max_velocity:
-                        ball.vel = (ball.vel / speed) * self.max_velocity
+                        ball.vel[0] = (ball.vel[0] / speed) * self.max_velocity
+                        ball.vel[1] = (ball.vel[1] / speed) * self.max_velocity
                     
-                    # Push out of wall
-                    ball.pos[0] += normal_x * (ball.radius - dist)
-                    ball.pos[1] += normal_y * (ball.radius - dist)
+                    # Push ball out of barrier
+                    push_dist = collision_dist - dist + 0.1
+                    ball.pos[0] += normal_x * push_dist
+                    ball.pos[1] += normal_y * push_dist
                     
                     # Damage barrier
-                    if barrier.take_damage(1):
-                        pass  # Barrier destroyed
+                    barrier.take_damage(1)
                     
                     self.collision_count += 1
                     self.play_note()
