@@ -34,11 +34,18 @@ class Barrier:
     
     def take_damage(self, amount=1):
         """Damage the barrier."""
+        # Invincible barriers (inf health) don't take damage
+        if math.isinf(self.max_health):
+            return False
         self.health = max(0, self.health - amount)
         return self.health <= 0
     
     def get_color(self):
         """Color based on health."""
+        # Invincible walls are bright blue
+        if math.isinf(self.max_health):
+            return (100, 200, 255)  # Bright blue for invincible
+        
         ratio = self.health / self.max_health
         if ratio > 0.66:
             return (100, 149, 237)  # Blue
@@ -81,6 +88,9 @@ class BouncingBallAnimation:
         self.system_rotation = 0  # Overall rotation angle in degrees
         self.rotation_speed = 0.5  # Degrees per frame
 
+        # Wall configuration
+        self.wall_health = None  # None = default health based on num_walls, float('inf') = invincible
+
         # Barriers
         self.barriers = self._init_barriers()
 
@@ -104,6 +114,19 @@ class BouncingBallAnimation:
         barriers = []
         center_x, center_y = self.width / 2, self.height / 2
         
+        # Determine health values based on wall_health setting
+        if self.wall_health is not None:
+            # Use custom health (could be float('inf') for invincible)
+            health_values = [self.wall_health] * 3
+        else:
+            # Use defaults based on number of walls
+            if self.num_walls == 1:
+                health_values = [80]
+            elif self.num_walls == 2:
+                health_values = [60, 60]
+            else:  # 3+
+                health_values = [50, 50, 50]
+        
         if self.num_walls == 1:
             # Single rotating square
             barrier_size = 300
@@ -116,11 +139,11 @@ class BouncingBallAnimation:
             for i in range(4):
                 x1, y1 = corners[i]
                 x2, y2 = corners[(i + 1) % 4]
-                barriers.append(Barrier(x1, y1, x2, y2, max_health=80))
+                barriers.append(Barrier(x1, y1, x2, y2, max_health=health_values[0]))
         
         elif self.num_walls == 2:
             # Two concentric squares
-            for barrier_size in [200, 350]:
+            for wall_idx, barrier_size in enumerate([200, 350]):
                 corners = [
                     (center_x - barrier_size, center_y - barrier_size),
                     (center_x + barrier_size, center_y - barrier_size),
@@ -130,11 +153,11 @@ class BouncingBallAnimation:
                 for i in range(4):
                     x1, y1 = corners[i]
                     x2, y2 = corners[(i + 1) % 4]
-                    barriers.append(Barrier(x1, y1, x2, y2, max_health=60))
+                    barriers.append(Barrier(x1, y1, x2, y2, max_health=health_values[wall_idx]))
         
         else:  # 3+ walls
             # Three concentric squares
-            for barrier_size in [150, 250, 350]:
+            for wall_idx, barrier_size in enumerate([150, 250, 350]):
                 corners = [
                     (center_x - barrier_size, center_y - barrier_size),
                     (center_x + barrier_size, center_y - barrier_size),
@@ -144,7 +167,7 @@ class BouncingBallAnimation:
                 for i in range(4):
                     x1, y1 = corners[i]
                     x2, y2 = corners[(i + 1) % 4]
-                    barriers.append(Barrier(x1, y1, x2, y2, max_health=50))
+                    barriers.append(Barrier(x1, y1, x2, y2, max_health=health_values[wall_idx]))
         
         return barriers
 

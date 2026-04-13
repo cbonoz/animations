@@ -38,6 +38,12 @@ def create_bouncing_simulation(args):
     if args.rotation_speed is not None:
         anim.rotation_speed = args.rotation_speed
     
+    # Set wall health options
+    if args.invincible_walls:
+        anim.wall_health = float('inf')
+    elif args.wall_health is not None:
+        anim.wall_health = args.wall_health
+    
     anim.run()
     print(f"✓ Video saved to media/videos/bouncing_ball.mp4")
 
@@ -114,6 +120,17 @@ Examples:
         "--rotation-speed",
         type=float,
         help="Barrier rotation speed in degrees/frame (default: 0.5, use 0 for no rotation)"
+    )
+    parser.add_argument(
+        "--wall-health",
+        type=int,
+        default=None,
+        help="Barrier health per segment (default: 80/60/40 based on walls, None=infinite)"
+    )
+    parser.add_argument(
+        "--invincible-walls",
+        action="store_true",
+        help="Make walls indestructible (infinite health)"
     )
     
     args = parser.parse_args()
