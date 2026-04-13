@@ -46,6 +46,10 @@ class Barrier:
             return (255, 165, 0)    # Orange
         else:
             return (255, 50, 50)    # Red
+    
+    def is_destroyed(self):
+        """Check if barrier is fully destroyed."""
+        return self.health <= 0
 
 
 class BouncingBallAnimation:
@@ -68,8 +72,10 @@ class BouncingBallAnimation:
         self.frame_number = 0
 
         # Physics parameters
-        self.gravity = 0.15
-        self.damping = 0.92
+        self.gravity = 0.12  # Slightly reduced gravity
+        self.damping = 0.88  # Lower damping for more bounce
+        self.elastic_boost = 1.15  # Barrier collisions add 15% energy
+        self.max_velocity = 12  # Cap max speed to prevent runaway
 
         # Barriers
         self.barriers = self._init_barriers()
@@ -156,8 +162,8 @@ class BouncingBallAnimation:
     def check_ball_barrier_collision(self, ball):
         """Check ball collision with barriers."""
         for barrier in self.barriers:
-            if barrier.health <= 0:
-                continue  # Skip destroyed barriers
+            if barrier.is_destroyed():
+                continue  # Skip destroyed barriers (ghost collision)
             
             x1, y1, x2, y2 = barrier.x1, barrier.y1, barrier.x2, barrier.y2
             
@@ -183,11 +189,17 @@ class BouncingBallAnimation:
                 normal_x = dist_x / (dist + 0.0001)
                 normal_y = dist_y / (dist + 0.0001)
                 
-                # Reflect velocity
+                # Reflect velocity with elastic boost
                 dot = ball.vel[0] * normal_x + ball.vel[1] * normal_y
                 if dot < 0:  # Moving toward wall
-                    ball.vel[0] = (ball.vel[0] - 2 * dot * normal_x) * self.damping
-                    ball.vel[1] = (ball.vel[1] - 2 * dot * normal_y) * self.damping
+                    # Elastic collision: reflect and boost energy
+                    ball.vel[0] = (ball.vel[0] - 2 * dot * normal_x) * self.damping * self.elastic_boost
+                    ball.vel[1] = (ball.vel[1] - 2 * dot * normal_y) * self.damping * self.elastic_boost
+                    
+                    # Cap velocity to prevent runaway
+                    speed = np.linalg.norm(ball.vel)
+                    if speed > self.max_velocity:
+                        ball.vel = (ball.vel / speed) * self.max_velocity
                     
                     # Push out of wall
                     ball.pos[0] += normal_x * (ball.radius - dist)
@@ -262,12 +274,14 @@ class BouncingBallAnimation:
         
         # Draw barriers
         for barrier in self.barriers:
-            if barrier.health > 0:
+            if not barrier.is_destroyed():
                 color = barrier.get_color()
+                # Draw barrier thicker if at full health (more solid feel)
+                thickness = 4 if barrier.health > barrier.max_health * 0.8 else 3
                 pygame.draw.line(surface, color, (barrier.x1, barrier.y1), 
-                               (barrier.x2, barrier.y2), 3)
+                               (barrier.x2, barrier.y2), thickness)
                 
-                # Draw health indicator
+                # Draw health indicator inner line
                 health_ratio = barrier.health / barrier.max_health
                 indicator_color = (100 + health_ratio * 155, 
                                  max(0, 150 - health_ratio * 150), 50)
@@ -291,10 +305,18 @@ class BouncingBallAnimation:
         collisions_text = font.render(f"Collisions: {self.collision_count}", True, (255, 255, 255))
         surface.blit(collisions_text, (10, 50))
         
-        # Alive/escaped balls
+        # Average ball velocity (energy indicator)
+        if self.balls:
+            avg_vel = np.mean([np.linalg.norm(b.vel) for b in self.balls if b.alive])
+            energy_text = font.render(f"Energy: {avg_vel:.1f}", True, (100, 200, 255))
+            surface.blit(energy_text, (self.width - 250, 10))
+        
+        # Alive/escaped balls and barriers
         alive_count = sum(1 for b in self.balls if b.alive)
         escaped_count = sum(1 for b in self.balls if not b.alive)
-        status_text = font.render(f"Balls: {alive_count} alive, {escaped_count} escaped", 
+        destroyed_barriers = sum(1 for b in self.barriers if b.is_destroyed())
+        total_barriers = len(self.barriers)
+        status_text = font.render(f"Balls: {alive_count} | Barriers: {total_barriers - destroyed_barriers}/{total_barriers}", 
                                  True, (255, 200, 100))
         surface.blit(status_text, (10, 90))
 
